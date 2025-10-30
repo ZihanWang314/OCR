@@ -12,9 +12,9 @@ from typing import Dict, Any, Optional
 class ConfigLoader:
     """
     Loads and merges rendering configurations with priority:
-    1. CLI arguments (highest priority)
-    2. Instance-specific config (from JSON data)
-    3. Dataset-level config (from YAML file)
+    1. Instance-specific config (from JSON data) - HIGHEST PRIORITY
+    2. CLI arguments (from command-line)
+    3. Dataset-level config (from YAML file) - LOWEST PRIORITY (default values)
     """
 
     def __init__(self, yaml_path: str = None):
@@ -70,9 +70,9 @@ class ConfigLoader:
         Merge configurations following priority system.
 
         Priority (highest to lowest):
-        1. CLI arguments (cli_overrides)
-        2. Instance config (from JSON data)
-        3. Dataset YAML config
+        1. Instance config (from JSON data) - HIGHEST
+        2. CLI arguments (cli_overrides)
+        3. Dataset YAML config - LOWEST (defaults)
 
         Args:
             dataset_name: Name of the dataset
@@ -82,16 +82,16 @@ class ConfigLoader:
         Returns:
             Merged configuration dictionary
         """
-        # Start with dataset-level config
+        # Start with dataset-level config (lowest priority - defaults)
         merged = self.get_dataset_config(dataset_name)
 
-        # Apply instance-specific config (overrides dataset config)
-        if instance_config:
-            merged.update({k: v for k, v in instance_config.items() if v is not None})
-
-        # Apply CLI overrides (highest priority)
+        # Apply CLI overrides (middle priority)
         if cli_overrides:
             merged.update({k: v for k, v in cli_overrides.items() if v is not None})
+
+        # Apply instance-specific config (highest priority - overrides everything)
+        if instance_config:
+            merged.update({k: v for k, v in instance_config.items() if v is not None})
 
         return merged
 
@@ -170,12 +170,13 @@ if __name__ == '__main__':
     print("\nRuler config:")
     print(ruler_config)
 
-    # Test config merging
-    instance_config = {'dpi': 72, 'font-size': 10}
-    cli_config = {'dpi': 96}
+    # Test config merging with priority: Instance > CLI > YAML
+    instance_config = {'dpi': 120, 'font-size': 10}
+    cli_config = {'dpi': 96, 'margin-x': 15}
 
     merged = loader.merge_configs('ruler', instance_config, cli_config)
-    print("\nMerged config (ruler + instance + cli):")
-    print(f"DPI: {merged['dpi']} (should be 96 from CLI)")
+    print("\nMerged config (Priority: Instance > CLI > YAML):")
+    print(f"DPI: {merged['dpi']} (should be 120 from instance - HIGHEST)")
     print(f"Font size: {merged['font-size']} (should be 10 from instance)")
-    print(f"Margin-x: {merged['margin-x']} (should be 10 from dataset)")
+    print(f"Margin-x: {merged['margin-x']} (should be 15 from CLI)")
+    print(f"Margin-y: {merged['margin-y']} (should be 10 from YAML default)")

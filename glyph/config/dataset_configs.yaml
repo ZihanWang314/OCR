@@ -1,9 +1,10 @@
 # Dataset-level rendering configurations for Glyph
 # These configs serve as defaults for each dataset and can be overridden by:
-# 1. Command-line arguments (highest priority)
-# 2. Individual data instance configs (in JSON files)
+# 1. Individual data instance configs (in JSON files) - HIGHEST PRIORITY
+# 2. Command-line arguments
+# 3. Dataset config (this file) - LOWEST PRIORITY (default values)
 #
-# Priority: CLI args > instance config > dataset config (this file)
+# Priority: Instance config > CLI args > Dataset config (this file)
 
 # RULER benchmark configuration
 ruler:

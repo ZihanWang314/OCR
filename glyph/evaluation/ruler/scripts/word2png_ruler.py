@@ -207,7 +207,7 @@ def process_one(item):
 
     try:
         # NEW: Use ConfigLoader to merge configs with priority:
-        # CLI args > Instance config (from JSON) > Dataset YAML config
+        # Instance config (from JSON) > CLI args > Dataset YAML config
         instance_config = item.get('config', {}) or {}
 
         # Merge configurations using priority system
