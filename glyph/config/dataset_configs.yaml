@@ -1,0 +1,108 @@
+# Dataset-level rendering configurations for Glyph
+# These configs serve as defaults for each dataset and can be overridden by:
+# 1. Command-line arguments (highest priority)
+# 2. Individual data instance configs (in JSON files)
+#
+# Priority: CLI args > instance config > dataset config (this file)
+
+# RULER benchmark configuration
+ruler:
+  page-size: "595,842"  # A4 size in points
+  dpi: 96
+  margin-x: 10
+  margin-y: 10
+  font-path: "glyph/config/Verdana.ttf"
+  font-size: 9
+  line-height: 10
+  font-color: "#000000"
+  alignment: "LEFT"
+  horizontal-scale: 1.0
+  first-line-indent: 0
+  left-indent: 0
+  right-indent: 0
+  space-after: 0
+  space-before: 0
+  border-width: 0
+  border-padding: 0
+  page-bg-color: "#FFFFFF"
+  para-bg-color: "#FFFFFF"
+  para-border-color: "#FFFFFF"
+  auto-crop-width: true
+  auto-crop-last-page: true
+
+# MRCR benchmark configuration
+mrcr:
+  page-size: "595,842"
+  dpi: 72
+  margin-x: 10
+  margin-y: 10
+  font-path: "glyph/config/Verdana.ttf"
+  font-size: 9
+  line-height: 10
+  font-color: "#000000"
+  alignment: "LEFT"
+  horizontal-scale: 1.0
+  first-line-indent: 0
+  left-indent: 0
+  right-indent: 0
+  space-after: 0
+  space-before: 0
+  border-width: 0
+  border-padding: 0
+  page-bg-color: "#FFFFFF"
+  para-bg-color: "#FFFFFF"
+  para-border-color: "#FFFFFF"
+  auto-crop-width: true
+  auto-crop-last-page: true
+
+# LongBench benchmark configuration
+longbench:
+  page-size: "595,842"
+  dpi: 72
+  margin-x: 20
+  margin-y: 20
+  font-path: "glyph/config/Verdana.ttf"  # Default for English tasks
+  font-size: 9
+  line-height: 10
+  font-color: "#000000"
+  alignment: "JUSTIFY"
+  horizontal-scale: 1.0
+  first-line-indent: 0
+  left-indent: 0
+  right-indent: 0
+  space-after: 0
+  space-before: 0
+  border-width: 0
+  border-padding: 0
+  page-bg-color: "#FFFFFF"
+  para-bg-color: "#FFFFFF"
+  para-border-color: "#FFFFFF"
+  auto-crop-width: true
+  auto-crop-last-page: true
+  newline-markup: "<br/>"  # Standard line breaks for longbench
+
+# LongBench Chinese tasks - uses different font
+longbench_zh:
+  page-size: "595,842"
+  dpi: 72
+  margin-x: 20
+  margin-y: 20
+  font-path: "glyph/config/SourceHanSansHWSC-VF.ttf"  # Chinese font
+  font-size: 9
+  line-height: 10
+  font-color: "#000000"
+  alignment: "JUSTIFY"
+  horizontal-scale: 1.0
+  first-line-indent: 0
+  left-indent: 0
+  right-indent: 0
+  space-after: 0
+  space-before: 0
+  border-width: 0
+  border-padding: 0
+  page-bg-color: "#FFFFFF"
+  para-bg-color: "#FFFFFF"
+  para-border-color: "#FFFFFF"
+  auto-crop-width: true
+  auto-crop-last-page: true
+  newline-markup: "<br/>"

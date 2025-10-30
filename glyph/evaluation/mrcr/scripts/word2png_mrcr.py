@@ -27,6 +27,10 @@ from pdf2image import convert_from_bytes
 import sys
 import multiprocessing as mp
 
+# Import config loader for dataset-level configurations
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../scripts'))
+from config_loader import ConfigLoader, parse_cli_overrides
+
 # 默认全局变量，将由 parse_args 设置，可被每个 item 的 config 覆盖
 PAGE_SIZE = A4
 MARGIN_X = 20
@@ -55,6 +59,11 @@ PROCESSES = 16
 OUTPUT_DIR = None
 JSON_PATH = None
 
+# Configuration management
+CONFIG_LOADER = None
+CLI_OVERRIDES = {}
+DATASET_NAME = 'mrcr'
+
 # 对齐映射
 ALIGN_MAP = {
     "LEFT": TA_LEFT,
@@ -67,6 +76,15 @@ def parse_args():
     p = argparse.ArgumentParser(
         description="Generate styled PDFs in parallel and export pages to PNGs via bash."
     )
+
+    # Dataset config
+    p.add_argument(
+        "--dataset",
+        type=str,
+        default='mrcr',
+        help="Dataset name for loading preset config from YAML (e.g., 'ruler', 'mrcr', 'longbench')."
+    )
+
     # 页面尺寸
     p.add_argument(
         "--page-size",
@@ -74,15 +92,16 @@ def parse_args():
         default=None,
         help="页面尺寸，格式 width,height(pt)，例如 595,842；不传默认为 A4"
     )
-    p.add_argument("--margin-x", type=float, default=20, help="左右边距 (pt)")
-    p.add_argument("--margin-y", type=float, default=20, help="上下边距 (pt)")
+    p.add_argument("--margin-x", type=float, default=None, help="左右边距 (pt)")
+    p.add_argument("--margin-y", type=float, default=None, help="上下边距 (pt)")
 
     # 字体
     p.add_argument("--font-path", type=str, default=None, help="TTF 字体文件路径")
-    p.add_argument("--font-size", type=float, default=9, help="字体大小 (pt)")
+    p.add_argument("--font-size", type=float, default=None, help="字体大小 (pt)")
     p.add_argument(
         "--line-height",
         type=float,
+        default=None,
         help="行高 (pt)，不传则为 font-size + 1"
     )
 
@@ -90,25 +109,25 @@ def parse_args():
     p.add_argument(
         "--page-bg-color",
         type=str,
-        default="#FFFFFF",
+        default=None,
         help="页面背景色 (#rrggbb)"
     )
     p.add_argument(
         "--font-color",
         type=str,
-        default="#000000",
+        default=None,
         help="字体颜色 (#rrggbb)"
     )
     p.add_argument(
         "--para-bg-color",
         type=str,
-        default="#FFFFFF",
+        default=None,
         help="段落背景色 (#rrggbb)"
     )
     p.add_argument(
         "--para-border-color",
         type=str,
-        default="#FFFFFF",
+        default=None,
         help="段落边框色 (#rrggbb)"
     )
 
@@ -116,39 +135,39 @@ def parse_args():
     p.add_argument(
         "--first-line-indent",
         type=float,
-        default=0,
+        default=None,
         help="首行缩进 (pt)"
     )
     p.add_argument(
         "--left-indent",
         type=float,
-        default=0,
+        default=None,
         help="段落左缩进 (pt)"
     )
     p.add_argument(
         "--right-indent",
         type=float,
-        default=0,
+        default=None,
         help="段落右缩进 (pt)"
     )
     p.add_argument(
         "--alignment",
         choices=["LEFT","CENTER","RIGHT","JUSTIFY"],
-        default="JUSTIFY",
+        default=None,
         help="对齐方式"
     )
-    p.add_argument("--space-before", type=float, default=0, help="段前距离 (pt)")
-    p.add_argument("--space-after", type=float, default=0, help="段后距离 (pt)")
+    p.add_argument("--space-before", type=float, default=None, help="段前距离 (pt)")
+    p.add_argument("--space-after", type=float, default=None, help="段后距离 (pt)")
     p.add_argument(
         "--border-width",
         type=float,
-        default=0,
+        default=None,
         help="段落边框宽度 (pt)"
     )
     p.add_argument(
         "--border-padding",
         type=float,
-        default=0,
+        default=None,
         help="段落边框内边距 (pt)"
     )
 
@@ -156,7 +175,7 @@ def parse_args():
     p.add_argument(
         "--horizontal-scale",
         type=float,
-        default=0.95,
+        default=None,
         help="水平缩放比例"
     )
     p.add_argument("--dpi", type=int, default=72, help="PNG 分辨率 (dpi)")

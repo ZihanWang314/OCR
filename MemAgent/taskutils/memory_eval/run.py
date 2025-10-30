@@ -366,7 +366,7 @@ CONFIGS = [
     
     # # Ablation Baselines
     Qwen3_8B,
-    Llama_3_1_8B_Instruct,
+    # Llama_3_1_8B_Instruct,
 
     # Qwen25_32B_128k,
     # Qwen25_14B_128k,

@@ -26,6 +26,10 @@ from pdf2image import convert_from_bytes
 import sys
 import multiprocessing as mp
 
+# Import config loader for dataset-level configurations
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../scripts'))
+from config_loader import ConfigLoader, parse_cli_overrides, add_dataset_arg
+
 # 默认全局变量，将由 parse_args 设置，可被每个 item 的 config 覆盖
 PAGE_SIZE = A4
 MARGIN_X = 20
@@ -55,6 +59,11 @@ OUTPUT_DIR = None
 JSON_PATH = None
 FINAL_JSONL_OUTPUT_PATH = None  # 新增：全局存储当前lens的JSONL输出路径
 
+# Configuration management
+CONFIG_LOADER = None  # Will be initialized in main()
+CLI_OVERRIDES = {}  # CLI argument overrides
+DATASET_NAME = 'ruler'  # Default dataset name
+
 # 对齐映射
 ALIGN_MAP = {
     "LEFT": TA_LEFT,
@@ -67,6 +76,15 @@ def parse_args():
     p = argparse.ArgumentParser(
         description="Generate styled PDFs in parallel and export pages to PNGs via bash."
     )
+
+    # Dataset config
+    p.add_argument(
+        "--dataset",
+        type=str,
+        default='ruler',
+        help="Dataset name for loading preset config from YAML (e.g., 'ruler', 'mrcr', 'longbench')."
+    )
+
     # 页面尺寸
     p.add_argument(
         "--page-size",
@@ -188,16 +206,29 @@ def process_one(item):
                 return item
 
     try:
-        # 每个 item 可自带 config 覆盖全局渲染参数
-        config = item.get('config', {}) or {}
+        # NEW: Use ConfigLoader to merge configs with priority:
+        # CLI args > Instance config (from JSON) > Dataset YAML config
+        instance_config = item.get('config', {}) or {}
 
-        # 解析配置或使用全局默认
+        # Merge configurations using priority system
+        if CONFIG_LOADER:
+            merged_config = CONFIG_LOADER.merge_configs(
+                dataset_name=DATASET_NAME,
+                instance_config=instance_config,
+                cli_overrides=CLI_OVERRIDES
+            )
+        else:
+            # Fallback to instance config if loader not available
+            merged_config = instance_config
+
+        # 解析配置，使用merged_config
+        config = merged_config
         page_size = (tuple(map(float, config['page-size'].split(',')))
                     if 'page-size' in config else PAGE_SIZE)
         margin_x = config.get('margin-x', MARGIN_X)
         margin_y = config.get('margin-y', MARGIN_Y)
         font_path = config.get('font-path', FONT_PATH)
-        font_name = os.path.basename(font_path).split('.')[0]
+        font_name = os.path.basename(font_path).split('.')[0] if font_path else 'default'
         font_size = config.get('font-size', FONT_SIZE)
         line_height = config.get('line-height', None) or (font_size + 1)
 
@@ -442,12 +473,25 @@ def main():
     global SPACE_BEFORE, SPACE_AFTER, BORDER_WIDTH, BORDER_PADDING
     global HORIZONTAL_SCALE, DPI, AUTO_CROP_LAST_PAGE, AUTO_CROP_WIDTH, PROCESSES
     global OUTPUT_DIR, JSON_PATH, FINAL_JSONL_OUTPUT_PATH, lens_current
+    global CONFIG_LOADER, CLI_OVERRIDES, DATASET_NAME
 
     # -------------------------- 核心改动：定义要循环的lens列表 --------------------------
     lens_list = [4096, 8192, 16384, 32768, 65536, 126000]  # 目标lens值
     # -----------------------------------------------------------------------------------
 
     args = parse_args()
+
+    # Initialize configuration system
+    DATASET_NAME = args.dataset
+    CONFIG_LOADER = ConfigLoader()
+    CLI_OVERRIDES = parse_cli_overrides(args)
+
+    print(f"\n{'='*60}")
+    print(f"Configuration System Initialized:")
+    print(f"  Dataset: {DATASET_NAME}")
+    print(f"  YAML Config: {CONFIG_LOADER.yaml_path}")
+    print(f"  CLI Overrides: {CLI_OVERRIDES if CLI_OVERRIDES else 'None'}")
+    print(f"{'='*60}\n")
     # 全局渲染参数初始化（由命令行参数决定，所有lens共用）
     if args.page_size:
         w, h = map(float, args.page_size.split(","))
@@ -489,9 +533,9 @@ def main():
 
         # 1. 构造当前lens的输入/输出路径（与原脚本路径格式保持一致）
         # benchmark eval
-        JSON_PATH = f'./ruler/data/dpi96_processed_ruler_all_tasks_{lens_current}.json'
-        FINAL_JSONL_OUTPUT_PATH = f'./ruler/data/final_dpi96_processed_ruler_all_tasks_{lens_current}.jsonl'
-        OUTPUT_DIR = f'./ruler/rendered_images/{lens_current}'
+        JSON_PATH = f'data/Glyph_Evaluation/ruler/data/dpi96_processed_ruler_all_tasks_{lens_current}.json'
+        FINAL_JSONL_OUTPUT_PATH = f'data/Glyph_Evaluation/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens_current}.jsonl'
+        OUTPUT_DIR = f'output_images/ruler/{lens_current}'
 
         # 2. 检查输入JSON文件是否存在
         if not os.path.exists(JSON_PATH):
