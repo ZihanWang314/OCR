@@ -13,6 +13,10 @@ import math
 import io
 import base64
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--port', type=int, default=8000)
+args = parser.parse_args()
+
 env_var_name1 = "http_proxy"
 env_var_name2 = "https_proxy"
 if env_var_name1 in os.environ:
@@ -27,7 +31,7 @@ else:
     print(f"Environment variable '{env_var_name2}' does not exist.")
 
 headers = {'Content-Type': 'application/json'}
-URL = 'http://your_api_url:port/v1/chat/completions'
+URL = f'http://127.0.0.1:{args.port}/v1/chat/completions'
 MAX_PIXELS = 36000000
 
 def encode_image_with_max_pixels(image_path: str, max_pixels: int) -> str:
@@ -193,7 +197,7 @@ def send_to_api(api_url, message, headers=None, max_retries=3):
         headers = {'Content-Type': 'application/json'}
     
     data = {
-        "model": "glyph",
+        "model": "zai-org/Glyph",
         "messages": message['messages'],
         "skip_special_tokens": False,
         "include_stop_str_in_output": True,
@@ -246,9 +250,9 @@ def process_single_item(api_url, data_item, index, model_name, headers, temp_dir
             return None
             
         response = send_to_api(api_url, message, headers)
-        
         # 提取预测结果
         pred_text = ""
+        response_data = {}
         if response and 'choices' in response and len(response['choices']) > 0:
             if 'message' in response['choices'][0] and 'content' in response['choices'][0]['message']:
                 pred_text = response['choices'][0]['message']['content']
@@ -262,6 +266,7 @@ def process_single_item(api_url, data_item, index, model_name, headers, temp_dir
                 #     pred_text = raw_content.split('</think>')[-1].strip()
                 # else:
                 #     pred_text = ""
+                response_data = {k: v for k, v in response.items() if k in ['model', 'usage']}
         
         # 获取任务名称和参考答案
         task_name = data_item.get('task_name', 'unknown')
@@ -276,8 +281,10 @@ def process_single_item(api_url, data_item, index, model_name, headers, temp_dir
             'references': references,
             'message': message,
             'response': response,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            **response_data
         }
+        print(response_data)
         
         # 写入临时文件（线程安全）
         # temp_file = os.path.join(temp_dir, f"result_{index:06d}.json")
@@ -294,127 +301,127 @@ def process_single_item(api_url, data_item, index, model_name, headers, temp_dir
 
 def main(jsonl_file_path, api_url, model_name="glm-4v", headers=None, max_workers=5):
     """主函数：读取JSON文件，使用多线程处理数据并发送到API，并进行评分"""
-    try:
-        # 读取JSON文件
-        with open(jsonl_file_path, 'r', encoding='utf-8') as f:
-            data_list = [json.loads(line) for line in f if line.strip()]
-        
-        if not isinstance(data_list, list):
-            print("错误：JSON文件内容不是一个列表")
-            return
-        
-        print(f"共有 {len(data_list)} 个数据项需要处理，使用 {max_workers} 个线程")
-        
-        # 创建临时目录存储中间结果
-        temp_dir = "" # if you want to specify a temp dir, set it here
-        os.makedirs(temp_dir, exist_ok=True)
-        print(f"临时结果将保存到: {temp_dir}")
-        
-        # 线程锁，用于文件写入的线程安全
-        lock = threading.Lock()
-        
-        # 使用线程池处理所有数据项
-        results = []
-        task_results = defaultdict(lambda: {'predictions': [], 'references': [], 'indices': []})
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # 提交所有任务
-            future_to_index = {
-                executor.submit(
-                    process_single_item, 
-                    api_url, 
-                    data_item, 
-                    i, 
-                    model_name, 
-                    headers, 
-                    temp_dir, 
-                    lock
-                ): i for i, data_item in enumerate(data_list)
-            }
-            
-            # 收集结果
-            completed = 0
-            for future in as_completed(future_to_index):
-                completed += 1
-                index = future_to_index[future]
-                try:
-                    result = future.result()
-                    if result:
-                        results.append(result)
-                        
-                        # 存储结果用于评分
-                        task_name = result['task_name']
-                        task_results[task_name]['predictions'].append(result['prediction'])
-                        task_results[task_name]['references'].append(result['references'])
-                        task_results[task_name]['indices'].append(result['index'])
-                        
-                    print(f"进度: {completed}/{len(data_list)} 完成")
-                    
-                except Exception as e:
-                    print(f"处理第 {index+1} 个数据项时出错: {e}")
-        
-        # 按index排序结果
-        results.sort(key=lambda x: x['index'])
-        
-        # 对每个任务进行评分
-        evaluation_results = {}
-        summary_lines = []
-        total_score = 0
-        total_valid = 0
-        
-        print("\n开始评分...")
-        for task_name, task_data in task_results.items():
-            # 跳过指定的任务
-            if task_name in ['niah_single_3', 'niah_multikey_3']:
-                print(f"跳过任务: {task_name}")
-                continue
-
-            if len(task_data['predictions']) > 0:
-                score, recalls = evaluate_single_task(
-                    task_name, 
-                    task_data['predictions'], 
-                    task_data['references']
-                )
-                evaluation_results[task_name] = {
-                    'score': score,
-                    'valid': len(task_data['predictions']),
-                    'recalls': recalls
-                }
-                total_score += score
-                total_valid += len(task_data['predictions'])
-
-                task_summary = f"任务 {task_name}: 得分 {score:.2f}, 有效样本 {len(task_data['predictions'])}"
-                print(task_summary)
-                summary_lines.append(task_summary)
-        
-        # 计算总体平均分
-        if len(evaluation_results) > 0:
-            avg_score = total_score / len(evaluation_results)
-            evaluation_results['average'] = {
-                'score': avg_score,
-                'valid': total_valid
-            }
-            overall_summary = f"总体平均分: {avg_score:.2f} (有效样本总数 {total_valid})"
-            print(f"\n{overall_summary}")
-            summary_lines.append("")
-            summary_lines.append(overall_summary)
-        
-        print("所有数据处理和评分完成")
-        print(f"临时结果文件保存在: {temp_dir}")
-        
-        return {
-            'results': results,
-            'evaluation': evaluation_results,
-            'summary_lines': summary_lines,
-            'temp_dir': temp_dir
+    # try:
+    # 读取JSON文件
+    with open(jsonl_file_path, 'r', encoding='utf-8') as f:
+        data_list = [json.loads(line) for line in f if line.strip()]
+    
+    if not isinstance(data_list, list):
+        print("错误：JSON文件内容不是一个列表")
+        return
+    
+    print(f"共有 {len(data_list)} 个数据项需要处理，使用 {max_workers} 个线程")
+    
+    # 创建临时目录存储中间结果
+    temp_dir = "/tmp/ruler" # if you want to specify a temp dir, set it here
+    os.makedirs(temp_dir, exist_ok=True)
+    print(f"临时结果将保存到: {temp_dir}")
+    
+    # 线程锁，用于文件写入的线程安全
+    lock = threading.Lock()
+    
+    # 使用线程池处理所有数据项
+    results = []
+    task_results = defaultdict(lambda: {'predictions': [], 'references': [], 'indices': []})
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # 提交所有任务
+        future_to_index = {
+            executor.submit(
+                process_single_item, 
+                api_url, 
+                data_item, 
+                i, 
+                model_name, 
+                headers, 
+                temp_dir, 
+                lock
+            ): i for i, data_item in enumerate(data_list)
         }
         
-    except FileNotFoundError:
-        print(f"错误：找不到JSON文件 - {jsonl_file_path}")
-    except json.JSONDecodeError:
-        print(f"错误：JSON文件解析失败 - {jsonl_file_path}")
-    except Exception as e:
-        print(f"处理过程中发生错误: {e}")
+        # 收集结果
+        completed = 0
+        for future in as_completed(future_to_index):
+            completed += 1
+            index = future_to_index[future]
+            try:
+                result = future.result()
+                if result:
+                    results.append(result)
+                    
+                    # 存储结果用于评分
+                    task_name = result['task_name']
+                    task_results[task_name]['predictions'].append(result['prediction'])
+                    task_results[task_name]['references'].append(result['references'])
+                    task_results[task_name]['indices'].append(result['index'])
+                    
+                print(f"进度: {completed}/{len(data_list)} 完成")
+                
+            except Exception as e:
+                print(f"处理第 {index+1} 个数据项时出错: {e}")
+    
+    # 按index排序结果
+    results.sort(key=lambda x: x['index'])
+    
+    # 对每个任务进行评分
+    evaluation_results = {}
+    summary_lines = []
+    total_score = 0
+    total_valid = 0
+    
+    print("\n开始评分...")
+    for task_name, task_data in task_results.items():
+        # 跳过指定的任务
+        if task_name in ['niah_single_3', 'niah_multikey_3']:
+            print(f"跳过任务: {task_name}")
+            continue
+
+        if len(task_data['predictions']) > 0:
+            score, recalls = evaluate_single_task(
+                task_name, 
+                task_data['predictions'], 
+                task_data['references']
+            )
+            evaluation_results[task_name] = {
+                'score': score,
+                'valid': len(task_data['predictions']),
+                'recalls': recalls
+            }
+            total_score += score
+            total_valid += len(task_data['predictions'])
+
+            task_summary = f"任务 {task_name}: 得分 {score:.2f}, 有效样本 {len(task_data['predictions'])}"
+            print(task_summary)
+            summary_lines.append(task_summary)
+    
+    # 计算总体平均分
+    if len(evaluation_results) > 0:
+        avg_score = total_score / len(evaluation_results)
+        evaluation_results['average'] = {
+            'score': avg_score,
+            'valid': total_valid
+        }
+        overall_summary = f"总体平均分: {avg_score:.2f} (有效样本总数 {total_valid})"
+        print(f"\n{overall_summary}")
+        summary_lines.append("")
+        summary_lines.append(overall_summary)
+    
+    print("所有数据处理和评分完成")
+    print(f"临时结果文件保存在: {temp_dir}")
+    
+    return {
+        'results': results,
+        'evaluation': evaluation_results,
+        'summary_lines': summary_lines,
+        'temp_dir': temp_dir
+    }
+        
+    # except FileNotFoundError:
+    #     print(f"错误：找不到JSON文件 - {jsonl_file_path}")
+    # except json.JSONDecodeError:
+    #     print(f"错误：JSON文件解析失败 - {jsonl_file_path}")
+    # except Exception as e:
+    #     print(f"处理过程中发生错误: {e}")
     
     return None
 
@@ -426,13 +433,13 @@ if __name__ == "__main__":
         print(f"--- 开始处理长度: {lens} ---")
 
         # 定义输出目录并检查是否存在
-        output_dir = f"./ruler/results/{lens}"
+        output_dir = f"data/Glyph_Evaluation/ruler/results/{lens}"
         if os.path.exists(output_dir):
             print(f"输出目录 {output_dir} 已存在，跳过处理。")
             continue
 
         # 定义输入文件路径
-        jsonl_file = f"./ruler/data/final_dpi96_processed_ruler_all_tasks_{lens}.jsonl"
+        jsonl_file = f"data/Glyph_Evaluation/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens}.jsonl"
         
         # 检查输入文件是否存在
         if not os.path.exists(jsonl_file):
@@ -440,7 +447,7 @@ if __name__ == "__main__":
             continue
 
         # 调用主函数
-        result = main(jsonl_file, URL, model_name="glyph", headers=headers, max_workers=16)
+        result = main(jsonl_file, URL, model_name="zai-org/Glyph", headers=headers, max_workers=16)
         
         if result:
             # 创建输出目录

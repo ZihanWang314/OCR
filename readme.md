@@ -38,7 +38,9 @@ python visualize.py
 
 python glyph/evaluation/ruler/scripts/word2png_ruler.py # render images
 
-python glyph/evaluation/ruler/scripts/post_api_ruler.py # start running evaluation
+vllm serve zai-org/Glyph --tensor-parallel-size 4 --port 8001 --host 0.0.0.0
+
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 # start running evaluation
 
 
 ```python
@@ -64,7 +66,16 @@ for img_path in images:
     print(f"  {img_path}")
 ```
 
-
+inference:
+```python
+import requests
+import json
+A = json.load(open("post_api_ruler_error.json"))
+api_url, data, headers, timeout = A['api_url'], A['data'], A['headers'], A['timeout']
+data = json.dumps(data)
+response = requests.post(api_url, data=data, headers=headers, timeout=timeout)
+response
+```
 
 # get results
 python run.py
