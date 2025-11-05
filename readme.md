@@ -7,6 +7,7 @@ conda create -n agentocr python=3.12
 conda activate agentocr
 
 cd AgentOCR
+ln -s /blob/v-zihanwang azure_mount # mount soft link
 pip install httpx==0.23.1 aiohttp -U ray[serve,default] vllm omegaconf
 pip install -r MemAgent/requirements.txt
 pip install --upgrade huggingface-hub==0.36.0
@@ -33,9 +34,9 @@ conda activate agentocr
 
 export PYTHONPATH=$PYTHONPATH:/home/aiscuser/AgentOCR/MemAgent:/home/aiscuser/AgentOCR/glyph/scripts
 export DATAROOT=/home/aiscuser/AgentOCR/data/hotpotqa # for MemAgent
-export RESULT_ROOT=/blob/v-zihanwang/memagent_output/
+export RESULT_ROOT="."
 
-cd MemAgent
+cd MemAgent/taskutils/memory_eval
 python run.py
 python visualize.py
 
@@ -45,17 +46,24 @@ for f in data/glyph_eval/{mrcr,ruler}/data/*.json; do
   jq '[.[] | .config = {}]' "$f" > tmp && mv tmp "$f"
 done
 
+# render images
+CUDA_VISIBLE_DEVICES=4,5,6,7 vllm serve zai-org/Glyph --tensor-parallel-size 4 --port 8001 --host 0.0.0.0
 
+python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_48 --lens-list 4096,8192,16384,32768 --dpi 48
+python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_64 --lens-list 4096,8192,16384,32768 --dpi 64
+python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_72 --lens-list 4096,8192,16384,32768 --dpi 72
+python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_96 --lens-list 4096,8192,16384,32768 --dpi 96
+python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_120 --lens-list 4096,8192,16384,32768 --dpi 120
+
+# start running evaluation
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_48 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_64 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_72 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_96 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_120 --lens-list 4096,8192,16384,32768
 
 ```
 
-# evaluate ruler on Glyph
-
-python glyph/evaluation/ruler/scripts/word2png_ruler.py # render images
-
-vllm serve zai-org/Glyph --tensor-parallel-size 4 --port 8001 --host 0.0.0.0
-
-python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 # start running evaluation
 
 
 ```python

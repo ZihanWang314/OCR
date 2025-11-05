@@ -32,29 +32,30 @@ from config_loader import ConfigLoader, parse_cli_overrides, add_dataset_arg
 
 # 默认全局变量，将由 parse_args 设置，可被每个 item 的 config 覆盖
 PAGE_SIZE = A4
-MARGIN_X = 20
-MARGIN_Y = 20
+MARGIN_X = None
+MARGIN_Y = None
 FONT_PATH = None
 FONT_NAME = None
-FONT_SIZE = 9
+FONT_SIZE = None
 LINE_HEIGHT = None
 PAGE_BG_COLOR = None
 FONT_COLOR = None
 PARA_BG_COLOR = None
 PARA_BORDER_COLOR = None
-FIRST_LINE_INDENT = 0
-LEFT_INDENT = 0
-RIGHT_INDENT = 0
+FIRST_LINE_INDENT = None
+LEFT_INDENT = None
+RIGHT_INDENT = None
 ALIGNMENT = TA_JUSTIFY
-SPACE_BEFORE = 0
-SPACE_AFTER = 0
-BORDER_WIDTH = 0
-BORDER_PADDING = 0
-HORIZONTAL_SCALE = 1.0
-DPI = 72
-AUTO_CROP_LAST_PAGE = False
+SPACE_BEFORE = None
+SPACE_AFTER = None
+BORDER_WIDTH = None
+BORDER_PADDING = None
+HORIZONTAL_SCALE = None
+DPI = None
+AUTO_CROP_LAST_PAGE = None
 AUTO_CROP_WIDTH = False
-PROCESSES = 1
+RESULT_ROOT = "."
+PROCESSES = None
 OUTPUT_DIR = None
 JSON_PATH = None
 FINAL_JSONL_OUTPUT_PATH = None  # 新增：全局存储当前lens的JSONL输出路径
@@ -84,6 +85,12 @@ def parse_args():
         default='ruler',
         help="Dataset name for loading preset config from YAML (e.g., 'ruler', 'mrcr', 'longbench')."
     )
+    p.add_argument(
+        "--lens-list",
+        type=str,
+        default='4096,8192,16384,32768,65536,126000',
+        help="Lens list to process, comma separated."
+    )
 
     # 页面尺寸
     p.add_argument(
@@ -92,12 +99,12 @@ def parse_args():
         default=None,
         help="页面尺寸，格式 width,height(pt)，例如 595,842；不传默认为 A4"
     )
-    p.add_argument("--margin-x", type=float, default=20, help="左右边距 (pt)")
-    p.add_argument("--margin-y", type=float, default=20, help="上下边距 (pt)")
+    p.add_argument("--margin-x", type=float, default=None, help="左右边距 (pt)")
+    p.add_argument("--margin-y", type=float, default=None, help="上下边距 (pt)")
 
     # 字体
     p.add_argument("--font-path", type=str, default=None, help="TTF 字体文件路径")
-    p.add_argument("--font-size", type=float, default=9, help="字体大小 (pt)")
+    p.add_argument("--font-size", type=float, default=None, help="字体大小 (pt)")
     p.add_argument(
         "--line-height",
         type=float,
@@ -108,25 +115,25 @@ def parse_args():
     p.add_argument(
         "--page-bg-color",
         type=str,
-        default="#FFFFFF",
+        default=None,
         help="页面背景色 (#rrggbb)"
     )
     p.add_argument(
         "--font-color",
         type=str,
-        default="#000000",
+        default=None,
         help="字体颜色 (#rrggbb)"
     )
     p.add_argument(
         "--para-bg-color",
         type=str,
-        default="#FFFFFF",
+        default=None,
         help="段落背景色 (#rrggbb)"
     )
     p.add_argument(
         "--para-border-color",
         type=str,
-        default="#FFFFFF",
+        default=None,
         help="段落边框色 (#rrggbb)"
     )
 
@@ -134,19 +141,19 @@ def parse_args():
     p.add_argument(
         "--first-line-indent",
         type=float,
-        default=0,
+        default=None,
         help="首行缩进 (pt)"
     )
     p.add_argument(
         "--left-indent",
         type=float,
-        default=0,
+        default=None,
         help="段落左缩进 (pt)"
     )
     p.add_argument(
         "--right-indent",
         type=float,
-        default=0,
+        default=None,
         help="段落右缩进 (pt)"
     )
     p.add_argument(
@@ -155,18 +162,18 @@ def parse_args():
         default="JUSTIFY",
         help="对齐方式"
     )
-    p.add_argument("--space-before", type=float, default=0, help="段前距离 (pt)")
-    p.add_argument("--space-after", type=float, default=0, help="段后距离 (pt)")
+    p.add_argument("--space-before", type=float, default=None, help="段前距离 (pt)")
+    p.add_argument("--space-after", type=float, default=None, help="段后距离 (pt)")
     p.add_argument(
         "--border-width",
         type=float,
-        default=0,
+        default=None,
         help="段落边框宽度 (pt)"
     )
     p.add_argument(
         "--border-padding",
         type=float,
-        default=0,
+        default=None,
         help="段落边框内边距 (pt)"
     )
 
@@ -174,10 +181,10 @@ def parse_args():
     p.add_argument(
         "--horizontal-scale",
         type=float,
-        default=0.95,
+        default=None,
         help="水平缩放比例"
     )
-    p.add_argument("--dpi", type=int, default=72, help="PNG 分辨率 (dpi)")
+    p.add_argument("--dpi", type=int, default=None, help="PNG 分辨率 (dpi)")
     p.add_argument(
         "--auto-crop-last-page",
         action="store_true",
@@ -187,6 +194,12 @@ def parse_args():
         "--auto-crop-width",
         action="store_true",
         help="对宽启用自适应裁剪"
+    )
+    p.add_argument(
+        "--result-root",
+        type=str,
+        default=".",
+        help="结果根目录，用于存储渲染后的图片"
     )
 
     return p.parse_args()
@@ -220,7 +233,6 @@ def process_one(item):
         else:
             # Fallback to instance config if loader not available
             merged_config = instance_config
-
         # 解析配置，使用merged_config
         config = merged_config
         page_size = (tuple(map(float, config['page-size'].split(',')))
@@ -254,6 +266,7 @@ def process_one(item):
         dpi = config.get('dpi', DPI)
         auto_crop_last_page = config.get('auto-crop-last-page', AUTO_CROP_LAST_PAGE)
         auto_crop_width = config.get('auto-crop-width', AUTO_CROP_WIDTH)
+        result_root = config.get('result-root', RESULT_ROOT)
         newline_markup = config.get('newline-markup', None)
         
         
@@ -472,12 +485,9 @@ def main():
     global FIRST_LINE_INDENT, LEFT_INDENT, RIGHT_INDENT, ALIGNMENT
     global SPACE_BEFORE, SPACE_AFTER, BORDER_WIDTH, BORDER_PADDING
     global HORIZONTAL_SCALE, DPI, AUTO_CROP_LAST_PAGE, AUTO_CROP_WIDTH, PROCESSES
-    global OUTPUT_DIR, JSON_PATH, FINAL_JSONL_OUTPUT_PATH, lens_current
-    global CONFIG_LOADER, CLI_OVERRIDES, DATASET_NAME
+    global OUTPUT_DIR, JSON_PATH, FINAL_JSONL_OUTPUT_PATH, lens_current, RESULT_ROOT
+    global CONFIG_LOADER, CLI_OVERRIDES, DATASET_NAME, lens_list
 
-    # -------------------------- 核心改动：定义要循环的lens列表 --------------------------
-    lens_list = [4096, 8192, 16384, 32768, 65536, 126000]  # 目标lens值
-    # -----------------------------------------------------------------------------------
 
     args = parse_args()
 
@@ -499,12 +509,12 @@ def main():
     MARGIN_X, MARGIN_Y = args.margin_x, args.margin_y
     FONT_PATH = args.font_path
     FONT_NAME = 'my_font'  # 默认字体名（会被item config覆盖）
-    FONT_SIZE = args.font_size
-    LINE_HEIGHT = args.line_height or (FONT_SIZE + 1)
-    PAGE_BG_COLOR = colors.HexColor(args.page_bg_color)
-    FONT_COLOR = colors.HexColor(args.font_color)
-    PARA_BG_COLOR = colors.HexColor(args.para_bg_color)
-    PARA_BORDER_COLOR = colors.HexColor(args.para_border_color)
+    FONT_SIZE = args.font_size or 9
+    LINE_HEIGHT = args.line_height or (FONT_SIZE + 1) if FONT_SIZE else None
+    PAGE_BG_COLOR = colors.HexColor(args.page_bg_color) if args.page_bg_color else "#FFFFFF"
+    FONT_COLOR = colors.HexColor(args.font_color) if args.font_color else "#000000"
+    PARA_BG_COLOR = colors.HexColor(args.para_bg_color) if args.para_bg_color else "#FFFFFF"
+    PARA_BORDER_COLOR = colors.HexColor(args.para_border_color) if args.para_border_color else "#FFFFFF"
     FIRST_LINE_INDENT = args.first_line_indent
     LEFT_INDENT = args.left_indent
     RIGHT_INDENT = args.right_indent
@@ -517,7 +527,9 @@ def main():
     DPI = args.dpi
     AUTO_CROP_LAST_PAGE = args.auto_crop_last_page
     AUTO_CROP_WIDTH = args.auto_crop_width
-    PROCESSES = 32  # 进程数（可根据CPU核心数调整）
+    RESULT_ROOT = args.result_root
+    PROCESSES = 16  # 进程数（可根据CPU核心数调整）
+    lens_list = [int(lens) for lens in args.lens_list.split(',')]
 
     # 目录清理工具函数
     def ensure_empty_dir(dir_path):
@@ -534,8 +546,10 @@ def main():
         # 1. 构造当前lens的输入/输出路径（与原脚本路径格式保持一致）
         # benchmark eval
         JSON_PATH = f'data/glyph_eval/ruler/data/dpi96_processed_ruler_all_tasks_{lens_current}.json'
-        FINAL_JSONL_OUTPUT_PATH = f'data/glyph_eval/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens_current}.jsonl'
-        OUTPUT_DIR = f'output_images/ruler/{lens_current}'
+        FINAL_JSONL_OUTPUT_PATH = f'{RESULT_ROOT}/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens_current}.jsonl'
+        OUTPUT_DIR = f'{RESULT_ROOT}/ruler/output/{lens_current}'
+        os.makedirs(os.path.dirname(FINAL_JSONL_OUTPUT_PATH), exist_ok=True)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
         # 2. 检查输入JSON文件是否存在
         if not os.path.exists(JSON_PATH):

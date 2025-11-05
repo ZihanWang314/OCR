@@ -15,6 +15,10 @@ import base64
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=8000)
+parser.add_argument('--model-name', type=str, default="zai-org/Glyph")
+parser.add_argument('--result-root', type=str, default="results")
+parser.add_argument('--lens-list', type=str, default="4096,8192,16384,32768,65536,126000")
+parser.add_argument('--max-workers', type=int, default=16)
 args = parser.parse_args()
 
 env_var_name1 = "http_proxy"
@@ -427,19 +431,19 @@ def main(jsonl_file_path, api_url, model_name="glm-4v", headers=None, max_worker
 
 if __name__ == "__main__":
     # 定义要遍历的长度列表
-    all_lens = [4096, 8192, 16384, 32768, 65536, 126000]
+    all_lens = args.lens_list.split(',')
 
     for lens in all_lens:
         print(f"--- 开始处理长度: {lens} ---")
 
         # 定义输出目录并检查是否存在
-        output_dir = f"data/glyph_eval/ruler/results/{lens}"
+        output_dir = f"{args.result_root}/results/{lens}"
         if os.path.exists(output_dir):
             print(f"输出目录 {output_dir} 已存在，跳过处理。")
             continue
 
         # 定义输入文件路径
-        jsonl_file = f"data/glyph_eval/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens}.jsonl"
+        jsonl_file = f"{args.result_root}/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens}.jsonl"
         
         # 检查输入文件是否存在
         if not os.path.exists(jsonl_file):
@@ -447,7 +451,7 @@ if __name__ == "__main__":
             continue
 
         # 调用主函数
-        result = main(jsonl_file, URL, model_name="zai-org/Glyph", headers=headers, max_workers=16)
+        result = main(jsonl_file, URL, model_name=args.model_name, headers=headers, max_workers=args.max_workers)
         
         if result:
             # 创建输出目录
