@@ -533,8 +533,8 @@ def main():
 
         # 1. 构造当前lens的输入/输出路径（与原脚本路径格式保持一致）
         # benchmark eval
-        JSON_PATH = f'data/Glyph_Evaluation/ruler/data/dpi96_processed_ruler_all_tasks_{lens_current}.json'
-        FINAL_JSONL_OUTPUT_PATH = f'data/Glyph_Evaluation/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens_current}.jsonl'
+        JSON_PATH = f'data/glyph_eval/ruler/data/dpi96_processed_ruler_all_tasks_{lens_current}.json'
+        FINAL_JSONL_OUTPUT_PATH = f'data/glyph_eval/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens_current}.jsonl'
         OUTPUT_DIR = f'output_images/ruler/{lens_current}'
 
         # 2. 检查输入JSON文件是否存在

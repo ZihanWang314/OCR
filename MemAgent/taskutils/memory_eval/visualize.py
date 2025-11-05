@@ -105,7 +105,8 @@ if __name__ == "__main__":
     pd.set_option('display.width', 150) 
     pd.set_option('display.colheader_justify', 'left')
 
-    basedir = "results"
+    result_root = os.environ.get("RESULT_ROOT", ".")
+    basedir = os.path.join(result_root, "results")
     # relpath = ['ruler_hqa*', '*.jsonl']
     relpath = ['ruler*', '*.jsonl']
 

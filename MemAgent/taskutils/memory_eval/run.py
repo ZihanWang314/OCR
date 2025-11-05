@@ -20,7 +20,7 @@ sys.stdout.reconfigure(line_buffering=True)
 DASH_PORT = os.getenv("DASH_PORT", "8265")
 SERVE_PORT = os.getenv("SERVE_PORT", "8000")
 MODELROOT = os.getenv("MODELROOT", "/mnt/hdfs/hongli/model")
-
+RESULT_ROOT = os.getenv("RESULT_ROOT", ".")
 
 @dataclass
 class ENV:
@@ -126,7 +126,7 @@ class Config:
             if test in RULER_HQA_TESTS:
                 cmd = f"""python ruler_hqa.py --model {self.model}\
                     --length {test} \
-                    --save_dir results/ruler_hqa_{test} \
+                    --save_dir {RESULT_ROOT}/results/ruler_hqa_{test} \
                     --save_file {self.name} \
                     --tokenizer {self.ckpt} \
                     --api {self.method} \
@@ -135,7 +135,7 @@ class Config:
                 cmd = f"""python ruler_general.py --model {self.model}\
                     --split {test[0]} \
                     --length {test[1]} \
-                    --save_dir results/ruler_{test[0]}_{test[1]} \
+                    --save_dir {RESULT_ROOT}/results/ruler_{test[0]}_{test[1]} \
                     --save_file {self.name} \
                     --tokenizer {self.ckpt} \
                     --api {self.method} \
@@ -143,7 +143,7 @@ class Config:
             elif test in RULER_HQA_TESTS_OVER_1M:
                 cmd = f"""python ruler_hqa_over1m.py --model {self.model}\
                     --length {test} \
-                    --save_dir results/ruler_hqa_{test} \
+                    --save_dir {RESULT_ROOT}/results/ruler_hqa_{test} \
                     --save_file {self.name} \
                     --tokenizer {self.ckpt} \
                     --api {self.method} \

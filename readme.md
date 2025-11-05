@@ -1,38 +1,53 @@
 # init environment called agentocr
+```bash
+# 1. setup environment
+git clone https://github.com/zihanwang314/OCR.git AgentOCR
+
 conda create -n agentocr python=3.12
 conda activate agentocr
 
-git clone 
-
-cd MemAgent
+cd AgentOCR
 pip install httpx==0.23.1 aiohttp -U ray[serve,default] vllm omegaconf
-pip install -r requirements.txt
+pip install -r MemAgent/requirements.txt
 pip install --upgrade huggingface-hub==0.36.0
 
-cd ../Glyph
+# 2. download memagent data
+cd MemAgent/taskutils/memory_data
+bash download_qa_dataset.sh
+cd ../../../data
+bash ../MemAgent/hfd.sh BytedTsinghua-SIA/hotpotqa --dataset --tool aria2c -x 10
+export DATAROOT=$(pwd)/hotpotqa
+
+
+# 3. install glyph dependencies
 sudo apt-get install poppler-utils -y
 pip install transformers==4.57.1 gradio pdf2image reportlab pdfplumber pyyaml
 
+# 4. download glyph eval data
 sudo apt install git-lfs
 git lfs install
-cd ../data
-git clone https://huggingface.co/datasets/CCCCCC/Glyph_Evaluation
+git clone https://huggingface.co/datasets/CCCCCC/Glyph_Evaluation data/glyph_eval
 
-export PYTHONPATH=$PYTHONPATH:/home/aiscuser/MemAgent:/home/aiscuser/AgentOCR/Glyph/scripts
-export DATAROOT=/home/aiscuser/AgentOCR/data/hotpotqa # for MemAgent
-
-
-# deploy vllm to evaluate on MemAgent
+# 5. deploy vllm to evaluate on MemAgent
 conda activate agentocr
 
+export PYTHONPATH=$PYTHONPATH:/home/aiscuser/AgentOCR/MemAgent:/home/aiscuser/AgentOCR/glyph/scripts
+export DATAROOT=/home/aiscuser/AgentOCR/data/hotpotqa # for MemAgent
+export RESULT_ROOT=/blob/v-zihanwang/memagent_output/
+
 cd MemAgent
-vllm serve Qwen/Qwen3-VL-8B-Instruct --tensor_parallel_size 8
-
-
-
-cd taskutils/memory_eval
 python run.py
 python visualize.py
+
+# 6. evaluate ruler on glyph
+# fix glyph data config
+for f in data/glyph_eval/{mrcr,ruler}/data/*.json; do
+  jq '[.[] | .config = {}]' "$f" > tmp && mv tmp "$f"
+done
+
+
+
+```
 
 # evaluate ruler on Glyph
 

@@ -433,13 +433,13 @@ if __name__ == "__main__":
         print(f"--- 开始处理长度: {lens} ---")
 
         # 定义输出目录并检查是否存在
-        output_dir = f"data/Glyph_Evaluation/ruler/results/{lens}"
+        output_dir = f"data/glyph_eval/ruler/results/{lens}"
         if os.path.exists(output_dir):
             print(f"输出目录 {output_dir} 已存在，跳过处理。")
             continue
 
         # 定义输入文件路径
-        jsonl_file = f"data/Glyph_Evaluation/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens}.jsonl"
+        jsonl_file = f"data/glyph_eval/ruler/data/final_dpi96_processed_ruler_all_tasks_{lens}.jsonl"
         
         # 检查输入文件是否存在
         if not os.path.exists(jsonl_file):
