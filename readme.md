@@ -21,7 +21,7 @@ mkdir -p ../../../data
 cd ../../../data
 bash ../MemAgent/hfd.sh BytedTsinghua-SIA/hotpotqa --dataset --tool aria2c -x 10
 export DATAROOT=$(pwd)/hotpotqa
-
+cd ..
 
 # 3. install glyph dependencies
 sudo apt-get install poppler-utils -y
@@ -31,6 +31,10 @@ pip install transformers==4.57.1 gradio pdf2image reportlab pdfplumber pyyaml
 sudo apt install git-lfs
 git lfs install
 git clone https://huggingface.co/datasets/CCCCCC/Glyph_Evaluation data/glyph_eval
+
+for f in data/glyph_eval/{mrcr,ruler}/data/*.json; do
+  jq '[.[] | .config = {}]' "$f" > tmp && mv tmp "$f"
+done
 ```
 
 
@@ -49,16 +53,10 @@ export DATAROOT=/home/aiscuser/AgentOCR/data/hotpotqa # for MemAgent
 export RESULT_ROOT="."
 
 cd MemAgent/taskutils/memory_eval
-python run.py
-cp -r results/* /blob/v-zihanwang/AgentOCR-results
+python run.py && cp -r results/* /blob/v-zihanwang/AgentOCR-results
 python visualize.py
 
 # 6. evaluate ruler on glyph
-# fix glyph data config
-for f in data/glyph_eval/{mrcr,ruler}/data/*.json; do
-  jq '[.[] | .config = {}]' "$f" > tmp && mv tmp "$f"
-done
-
 # render images
 CUDA_VISIBLE_DEVICES=4,5,6,7 vllm serve zai-org/Glyph --tensor-parallel-size 4 --port 8001 --host 0.0.0.0
 
