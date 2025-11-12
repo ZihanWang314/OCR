@@ -353,9 +353,9 @@ CONFIGS = [
     # MemoryAgent_14B_5k_1k,
     
     # # Main Result Baselines
-    # Qwen3_VL_8B_Instruct,
+    Qwen3_VL_8B_Instruct,
     Glyph_9B,
-    GLM_4_9B_Chat_1M,
+    # GLM_4_9B_Chat_1M,
     # Qwen25_7B_1M,
     
     # L1,

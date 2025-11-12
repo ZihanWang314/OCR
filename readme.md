@@ -33,6 +33,10 @@ git lfs install
 git clone https://huggingface.co/datasets/CCCCCC/Glyph_Evaluation data/glyph_eval
 ```
 
+
+
+
+
 # Start to train and eval
 ```bash
 
@@ -46,6 +50,7 @@ export RESULT_ROOT="."
 
 cd MemAgent/taskutils/memory_eval
 python run.py
+cp -r results/* /blob/v-zihanwang/AgentOCR-results
 python visualize.py
 
 # 6. evaluate ruler on glyph
