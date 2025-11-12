@@ -55,23 +55,46 @@ export RESULT_ROOT="."
 cd MemAgent/taskutils/memory_eval
 python run.py && cp -r results/* /blob/v-zihanwang/AgentOCR-results
 python visualize.py
+```
 
-# 6. evaluate ruler on glyph
+# evaluate ruler on glyph
+
+```bash
+conda activate agentocr
 # render images
-CUDA_VISIBLE_DEVICES=4,5,6,7 vllm serve zai-org/Glyph --tensor-parallel-size 4 --port 8001 --host 0.0.0.0
-
 python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_48 --lens-list 4096,8192,16384,32768 --dpi 48
 python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_64 --lens-list 4096,8192,16384,32768 --dpi 64
 python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_72 --lens-list 4096,8192,16384,32768 --dpi 72
 python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_96 --lens-list 4096,8192,16384,32768 --dpi 96
 python glyph/evaluation/ruler/scripts/word2png_ruler.py --result-root results/dpi_120 --lens-list 4096,8192,16384,32768 --dpi 120
 
+
 # start running evaluation
-python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_48 --lens-list 4096,8192,16384,32768
-python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_64 --lens-list 4096,8192,16384,32768
-python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_72 --lens-list 4096,8192,16384,32768
-python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_96 --lens-list 4096,8192,16384,32768
-python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name zai-org/Glyph --result-root results/dpi_120 --lens-list 4096,8192,16384,32768
+# MODEL_NAME=zai-org/Glyph
+MODEL_NAME=Qwen/Qwen3-VL-8B-Instruct
+
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 vllm serve $MODEL_NAME --tensor-parallel-size 8 --port 8001 --host 0.0.0.0
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name $MODEL_NAME --result-root results/dpi_48 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name $MODEL_NAME --result-root results/dpi_64 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name $MODEL_NAME --result-root results/dpi_72 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name $MODEL_NAME --result-root results/dpi_96 --lens-list 4096,8192,16384,32768
+python glyph/evaluation/ruler/scripts/post_api_ruler.py --port 8001 --model-name $MODEL_NAME --result-root results/dpi_120 --lens-list 4096,8192,16384,32768
+
+# find all things like results/dpi_xx/results/NUMBER/filename.json(l), save them to /blob/v-zihanwang/zai_org_glyph/dpi_xx/NUMBER/filename.json(l)
+SRC=results
+DEST=/blob/v-zihanwang/zai_org_glyph
+
+for f in $(find "$SRC" -type f \( -name "evaluation.json" -o -name "evaluation_summary.txt" -o -name "predictions.jsonl" \)); do
+  rel=${f#$SRC/}                         # 去掉前缀 results/
+  dest="$DEST/${rel#*/}"                 # 去掉 dpi_xx 前的部分，保持层级 dpi_xx/NUMBER/...
+  mkdir -p "$(dirname "$dest")"
+  if [[ $f == *predictions.jsonl ]]; then
+    head -n 10 "$f" > "$dest"            # predictions.jsonl 截前 10 行
+  else
+    cp "$f" "$dest"                      # 其他文件直接复制
+  fi
+  echo "→ $dest"
+done
 
 ```
 

@@ -201,7 +201,7 @@ def send_to_api(api_url, message, headers=None, max_retries=3):
         headers = {'Content-Type': 'application/json'}
     
     data = {
-        "model": "zai-org/Glyph",
+        "model": args.model_name,
         "messages": message['messages'],
         "skip_special_tokens": False,
         "include_stop_str_in_output": True,
