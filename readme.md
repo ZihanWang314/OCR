@@ -1,20 +1,23 @@
 # init environment called agentocr
 ```bash
 # 1. setup environment
+cd ~
+rm -rf AgentOCR
 git clone https://github.com/zihanwang314/OCR.git AgentOCR
 
-conda create -n agentocr python=3.12
+conda create -n agentocr python=3.12 -y
 conda activate agentocr
 
 cd AgentOCR
-ln -s /blob/v-zihanwang azure_mount # mount soft link
-pip install httpx==0.23.1 aiohttp -U ray[serve,default] vllm omegaconf
+pip install torch==2.5.0 --index-url https://download.pytorch.org/whl/cu124
+pip install "ray[serve,default]" httpx==0.23.1 aiohttp -U vllm omegaconf datasets --no-build-isolation
 pip install -r MemAgent/requirements.txt
 pip install --upgrade huggingface-hub==0.36.0
 
 # 2. download memagent data
 cd MemAgent/taskutils/memory_data
 bash download_qa_dataset.sh
+mkdir -p ../../../data
 cd ../../../data
 bash ../MemAgent/hfd.sh BytedTsinghua-SIA/hotpotqa --dataset --tool aria2c -x 10
 export DATAROOT=$(pwd)/hotpotqa
@@ -28,10 +31,15 @@ pip install transformers==4.57.1 gradio pdf2image reportlab pdfplumber pyyaml
 sudo apt install git-lfs
 git lfs install
 git clone https://huggingface.co/datasets/CCCCCC/Glyph_Evaluation data/glyph_eval
+```
+
+# Start to train and eval
+```bash
 
 # 5. deploy vllm to evaluate on MemAgent
 conda activate agentocr
 
+export DATAROOT=$(pwd)/hotpotqa
 export PYTHONPATH=$PYTHONPATH:/home/aiscuser/AgentOCR/MemAgent:/home/aiscuser/AgentOCR/glyph/scripts
 export DATAROOT=/home/aiscuser/AgentOCR/data/hotpotqa # for MemAgent
 export RESULT_ROOT="."
